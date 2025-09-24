@@ -48,10 +48,10 @@ const userSchema=new Schema({
   {timestamps:true}
 )
 
-userSchema.pre("save",function(next){  
+userSchema.pre("save",async function(next){  
     if(!this.isModified("password"))return next();  //this is to check only if the password is modified then only it is encrypted not otherwise
 
-    this.password=bcrypt.hash(this.password,10);   //here 10 denotes the rounds
+    this.password = await bcrypt.hash(this.password,10);   //here 10 denotes the rounds
     next();
 })
 
