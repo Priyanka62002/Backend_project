@@ -1,6 +1,7 @@
 import mongoose, {Schema} from "mongoose";
 import jwt from "jsonwebtoken";
-import bcrypt from "bcryptjs";
+import bcrypt from "bcrypt";
+
 const userSchema=new Schema({
     username:{
         type:String,
@@ -60,7 +61,14 @@ userSchema.methods.isPasswordCorrect=async function(password){
     return await bcrypt.compare(password,this.password)
 }
 
+//callback dosent give the right to handle this.objectname thus callback is not used here
 userSchema.methods.generateAccessToken=function(){
+
+    //access token is short lived token
+    //till i have access token i can access the resources
+    //access token is not stored in db
+    //everytime we dont need to put password and all so we use refresh token to generate new access token
+    // refresh token hits an endpoint ans the server verifies it with the stored access token and then generates new access token
     return jwt.sign(
         {
             _id:this._id,
@@ -68,7 +76,7 @@ userSchema.methods.generateAccessToken=function(){
             username:this.username,
             fullname:this.fullname,
         },
-        process.env.ACESS_TOKEN_SECRET,
+        process.env.ACCESS_TOKEN_SECRET,
         {
             expiresIn:process.env.ACCESS_TOKEN_EXPIRY,
         }
@@ -76,6 +84,11 @@ userSchema.methods.generateAccessToken=function(){
 }
 
 userSchema.methods.generateRefreshToken=function(){
+
+    //refresh token is long lived token
+    //it is used to generate new access token when access token expires
+    //refresh token is stored in db as well as given to user also
+     
      return jwt.sign(
         {
             _id:this._id,
