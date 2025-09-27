@@ -270,11 +270,141 @@ const refreshAccessToken=asyncHandler(async(req,res)=>{
 
 })
 
+const changeCurrentPassword=asyncHandler(async(req,res)=>{
+    //change the current password by user
+    console.log("req.body",req.body)
+    const {oldPassword,newPassword} = req.body;
+
+    //if we have run auth middleware then req.user contains user
+   const user = await User.findById(req.user?._id)
+   const isPasswordCorrect = await user.isPasswordCorrect(oldPassword)
+   if(!isPasswordCorrect){
+    throw new ApiError(400,"old password is incorrect")
+
+   }
+   user.password=newPassword;
+   await user.save({validateBeforeSave: false})
+
+    return res
+   .status(200)
+   .json(
+    new ApiResponse(
+        200,
+        {},
+        "password changed successfully"
+    )
+   )
+})
+
+const getCurrentUser= asyncHandler(async(req,res)=>{
+    return res.status(200).json(
+        200,req.user,"current user fetched successfully"
+    )
+})
+
+const updateAccountDetails=asyncHandler(async(req,res)=>{
+    const {fullname,email} = req.body
+    if(!fullname || !email){
+        throw new ApiError(400,"fullname and email are required")
+
+    }
+    const user = await User.findByIdAndUpdate(
+        req.user?._id,
+        {
+            $set:{
+                fullname,
+                email,
+            }
+        },
+        {new:true}          //here new :true is used to return the updated information
+     )
+     .select("-password")
+
+     return res.ststus(200)
+     .json(
+        new ApiResponse(
+            200,
+            user,
+            "Account details updated successfully"
+        )
+     )
+})
+
+const updateUserAvatar = asyncHandler(async(req,res)=>{
+    //get req.files
+    console.log("avatar req.file",req.file)
+
+
+    const avatarLocalPath = req.file?.path
+    if(!avatarLocalPath){
+        throw new ApiError(400,"avatar is required")
+    }
+    const avatar =await uploadOnCloudinary(avatarLocalPath)
+    if(!avatar.url){
+        throw new ApiError(400,"Error while uploading on avatar")
+    }
+    const user = await User.findByIdAndUpdate(
+        req.user?._id,
+        {
+            $set:{
+                avatar:avatar.url
+            }
+        },
+        {new:true}         //By default, findOneAndUpdate() returns the document as it was before update was applied. If you set new: true, findOneAndUpdate() will instead give you the object after update was applied.
+    ).select("-password")
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(
+            200,
+            user,
+            "user avatar updated successfully"
+        )
+    )
+})
+
+const updateUserCoverImage= asyncHandler(async(req,res)=>{
+    const coverImageLocalPath = req.file?.path
+    if(!coverImageLocalPath){
+        throw new ApiError(400,"cover image is required")
+    }
+    const coverImage= await uploadOnCloudinary(coverImageLocalPath)
+    if(!coverImage.url){
+        throw new ApiError(400,"Error while uploading cover image")
+    }
+    const user = await User.findByIdAndUpdate(
+        req.file?._id,
+        {
+            $set:{
+                coverImage:coverImage.url
+            }
+        },
+        {new:true}
+    ).select("-password")
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(
+            200,
+            user,
+            "user coverImage updated successfully"
+        )
+    )
+})
+
+
 export {
     registerUser,
     loginUser,
     logoutUser,
-    refreshAccessToken
+    refreshAccessToken,
+    changeCurrentPassword,
+    getCurrentUser,
+    updateAccountDetails,
+    updateUserAvatar,
+    updateUserCoverImage,
 };
 
 
