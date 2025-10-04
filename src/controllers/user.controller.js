@@ -4,6 +4,7 @@ import { User } from "../models/user.models.js";
 import {uploadOnCloudinary} from "../utils/cloudinary.js"
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 
 //generate access and refresh token
 const generateAccessAndRefreshTokens=async(userId)=>{
@@ -187,8 +188,8 @@ const logoutUser=asyncHandler(async(req,res)=>{
     await User.findByIdAndUpdate(
         req.user._id,
         {             //update part
-            $set:{
-                refreshToken: undefined     //refresh token is to be updated
+            $unset:{
+                refreshToken: 1    //refresh token is to be updated
             }
 
         },
@@ -222,8 +223,8 @@ const refreshAccessToken=asyncHandler(async(req,res)=>{
 
     //steps:
     //get the refresh token from cookie
-    const incomingRefreshToken = req.cokies.refreshToken || req.body.refreshToken     //req.body is used for the mobile ap etc
-
+    const incomingRefreshToken = req.cookies.refreshToken || req.body.refreshToken     //req.body is used for the mobile ap etc
+    console.log("incomingRefreshToken",incomingRefreshToken)
     if(!incomingRefreshToken){
         throw new ApiError(401,"refresh token not found, user unauthorized")
     }
@@ -240,6 +241,8 @@ const refreshAccessToken=asyncHandler(async(req,res)=>{
         if(!user){
             throw new ApiError(401,"invalid refresh token")
         }
+        console.group("user:", user) 
+
         if(incomingRefreshToken !==user?.refreshToken){
             throw new ApiError(401,"refresh token is expires or used")
     
@@ -249,17 +252,17 @@ const refreshAccessToken=asyncHandler(async(req,res)=>{
             httpOnly:true,
             secure:true,
         }
-        const {accessToken, newRefreshToken} = await generateAccessAndRefreshTokens(user._id)
+        const {accessToken, refreshToken} = await generateAccessAndRefreshTokens(user._id)
     
         return res.status(200)
         .cookie("accessToken",accessToken,options)
-        .cookie("refreshToken",newRefreshToken,options)
+        .cookie("refreshToken",refreshToken,options)
         .json(
             new ApiResponse(
                 200,
                 {
                     accessToken, 
-                    refreshToken : newRefreshToken
+                    refreshToken //: newRefreshToken
                 },
                 "access token refreshed successfully"
             )
@@ -376,11 +379,12 @@ const updateUserCoverImage= asyncHandler(async(req,res)=>{
         throw new ApiError(400,"cover image is required")
     }
     const coverImage= await uploadOnCloudinary(coverImageLocalPath)
+    console.log(coverImage)
     if(!coverImage.url){
         throw new ApiError(400,"Error while uploading cover image")
     }
     const user = await User.findByIdAndUpdate(
-        req.file?._id,
+        req.user?._id,
         {
             $set:{
                 coverImage:coverImage.url
@@ -389,6 +393,7 @@ const updateUserCoverImage= asyncHandler(async(req,res)=>{
         {new:true}
     ).select("-password")
 
+    console.log("user=",user)
     return res
     .status(200)
     .json(
@@ -480,10 +485,11 @@ const getUserChannelProfile = asyncHandler(async(req,res)=>{
 })
 
 const getWatchHistory=asyncHandler(async(req,res)=>{
+    //console.log("req.user",req.user)
     const user = await User.aggregate([
         {
             $match:{
-                _id: mongoose.Types.ObjectId(req.user._id) 
+                _id: new mongoose.Types.ObjectId(req.user._id) 
             }
         },
         {
